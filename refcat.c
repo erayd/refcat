@@ -38,15 +38,42 @@
 #include <errno.h>
 #include <linux/limits.h>
 #include <linux/fs.h>
+#include <string.h>
 
 
 int main(int argc, char **argv) {
-    if (argc < 2) {
+    struct {
+        char *target;
+        int append;
+    } config = {
+        .target = 0,
+        .append = 0
+    };
+
+    // parse args
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-a") || !strcmp(argv[i], "--append")) {
+            config.append = 1;
+        } else {
+            config.target = argv[i];
+        }
+    }
+
+    // check for target
+    if (!config.target) {
         fprintf(stderr, "No target specified\n");
         return 1;
     }
-    int target = open(argv[1], O_CREAT | O_WRONLY, 0644);
 
+    // truncate target
+    int target = open(config.target, O_CREAT | O_WRONLY, 0644);
+    if (!config.append) {
+        if (ftruncate(target, 0)) {
+            error(errno, errno, "Failed truncating target");
+        }
+    }
+
+    // assemble target
     char part[PATH_MAX];
     while (fgets((char * restrict)&part, sizeof(part), stdin)) {
         strtok(part, "\n");
